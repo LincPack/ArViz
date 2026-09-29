@@ -17,7 +17,7 @@ image_size = None
 
 # 2. Load your images from the SD card folder
 # Change 'gopro_photos/*.jpg' to your actual folder path
-image_files = glob.glob('gopro_photos/*.JPG')
+image_files = glob.glob('gopro_photos_2/*.JPG')
 
 if not image_files:
     print("Error: No images found in the specified directory.")
@@ -64,3 +64,34 @@ print(dist_coeffs)
 # Optional: Save matrices to a file for your tracking script
 np.savez("gopro_calibration.npz", mtx=camera_matrix, dist=dist_coeffs)
 print("\nSaved calibration data to 'gopro_calibration.npz'")
+total_error = 0
+total_points = 0
+
+for i in range(len(all_obj_points)):
+    projected, _ = cv2.projectPoints(
+        all_obj_points[i],
+        rvecs[i],
+        tvecs[i],
+        camera_matrix,
+        dist_coeffs
+    )
+
+    img_points = all_img_points[i].reshape(-1, 2)
+    projected = projected.reshape(-1, 2)
+
+    error = cv2.norm(
+        img_points,
+        projected,
+        cv2.NORM_L2
+    )
+
+    total_error += error**2
+    total_points += len(img_points)
+
+    image_rms = error / np.sqrt(len(img_points))
+
+    print(f"Image {i}: {image_rms:.3f} px")
+
+overall_rms = np.sqrt(total_error / total_points)
+
+print(f"\nOverall RMS: {overall_rms:.3f} px")
