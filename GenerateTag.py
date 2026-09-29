@@ -13,13 +13,13 @@ pixel_size = 400     # The size of the output image in pixels (400x400) Higher p
 # The function automatically applies a 1-bit thick black border
 
 
-for i in range(6):
+for i in range(7):
     marker_id = i
 
     marker_image = cv2.aruco.generateImageMarker(aruco_dict, marker_id, pixel_size)
 
 # 4. Save the generated marker to a file
-    cv2.imwrite(f"aruco_marker_{marker_id}.png", marker_image)
+    cv2.imwrite(f"aruco_marker_{marker_id}.pdf", marker_image)
 
     print(f"ArUco tag successfully generated and saved as 'aruco_marker_{i}.png'")
 
