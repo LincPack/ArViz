@@ -11,7 +11,6 @@ from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
 import cv2
 import numpy as np
-import scipy as sp
 from scipy.spatial.transform import Rotation as rot
 
 class CameraVisionNode(Node):
@@ -27,6 +26,7 @@ class CameraVisionNode(Node):
 
         vid_source = self.get_parameter('vid_source').get_parameter_value().string_value
 
+
         if vid_source.isdigit():
             source = int(vid_source)
             self.get_logger.info("Obtaining video feed from a camera.")
@@ -37,6 +37,7 @@ class CameraVisionNode(Node):
 
 
         camera_config = np.load(self.get_parameter('camera_config').get_parameter_value().string_value)
+        
         self.get_logger().info(f'Loading camera information from {camera_config}')
 
         self.camera_matrix = camera_config['mtx']

@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'ArViz_temp'
+package_name = 'ar_viz'
 
 setup(
     name=package_name,
@@ -11,15 +11,20 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools',
+                      'numpy',
+                      'opencv-python',
+                      'scipy'],
     zip_safe=True,
     maintainer='lincolnpacker',
     maintainer_email='lincolnkingsday@gmail.com',
-    description='TODO: Package description',
+    description='This ROS2 package provides a way for multiple cameras to be set up to get an object\'s pose from ArUco tags.',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'data_meshing_node = ar_viz.data_meshing_node:main',
+            'camera_vision_node = ar_viz.camera_vision_node:main'
         ],
     },
 )
