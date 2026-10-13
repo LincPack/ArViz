@@ -12,6 +12,8 @@ from geometry_msgs.msg import PoseStamped
 import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation as rot
+import yaml
+from custom_interfaces.msg import ArUcoArray, ArUcoDetection
 
 class CameraVisionNode(Node):
     def __init__(self):
@@ -19,7 +21,8 @@ class CameraVisionNode(Node):
 
         # The camera configuration file needs to be in a .npz format
 
-        self.pub = self.create_publisher(PoseStamped, 'tag_pose', 10)
+        self.pub = self.create_publisher(ArUcoArray, 'tag_pose_array', 10)
+        
 
         self.declare_parameter('camera_config', 'ArViz/gopro_calibration.npz')
         self.declare_parameter('vid_source', '0')
@@ -28,11 +31,11 @@ class CameraVisionNode(Node):
 
 
         if vid_source.isdigit():
-            source = int(vid_source)
-            self.get_logger.info("Obtaining video feed from a camera.")
+            self.source = int(vid_source)
+            self.get_logger().info("Obtaining video feed from a camera.")
 
         else:
-            source = vid_source
+            self.source = vid_source
             self.get_logger().info("Obtaining video feed from recording.")
 
 
@@ -43,7 +46,7 @@ class CameraVisionNode(Node):
         self.camera_matrix = camera_config['mtx']
         self.camera_dist_coeffs = camera_config['dist']
 
-        self.cam = cv2.VideoCapture(source)
+        self.cam = cv2.VideoCapture(self.source)
 
         if not self.cam.isOpened():
             self.get_logger().error("Failed to open video source")
@@ -55,25 +58,30 @@ class CameraVisionNode(Node):
         timer_period = 1.0/fps
         self.get_logger().info(f"Processing camera feed at {fps} fps.")
 
-        self.timer = self.create_timer(timer_period, self.frame_process_callback)
+        self.timer = self.create_timer(timer_period, self.frame_process_callback) # This is the actual subscriber/publisher type thing
 
-        arucoDict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4x4_50)
+        arucoDict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
         arucoParams = cv2.aruco.DetectorParameters()
-        self.detector = cv2.aruco.ArucoDetector(self.arucoDict, self.arucoParams)
+        self.detector = cv2.aruco.ArucoDetector(arucoDict, arucoParams)
         self.tag_size = 0.0194 ## Input tag length in m here
 
     def frame_process_callback(self):
-        ret, frame = self.cap.read()
+        ret, frame = self.cam.read()
         if not ret:
             self.get_logger().warn('No fram received, or end of file')
-            self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            self.cam.set(cv2.CAP_PROP_POS_FRAMES, 0)
             return
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         corners, ids, rejected = self.detector.detectMarkers(gray)
 
+        
+
         if ids is not None:
-            cv2.aruco.drawDetectedMarkers(frame, corners, ids)
+            # cv2.aruco.drawDetectedMarkers(frame, corners, ids) # -- This may not be strictly necessary, especially if I am using RVIZ
+
+            msg = ArUcoArray()
+            # msg.header.frame_id = str(self.source)
 
             for markerCorners, markerID in zip(corners, ids):
                 half = self.tag_size/2
@@ -95,35 +103,48 @@ class CameraVisionNode(Node):
                 )
 
                 if success:
-                    R, _ = cv2.Rodrigues(rvec)
+                    tvec_flat = tvec.flatten()
+                    rvec_flat = rvec.flatten()
+                    R, _ = cv2.Rodrigues(rvec_flat)
                     rotation = rot.from_matrix(R)
 
                     quat = rotation.as_quat()
 
-                #TODO publish all tags at once, not just one at a time
+                    reprojected_points, _ = cv2.projectPoints(objectPoints, rvec_flat, tvec_flat, self.camera_matrix, self.camera_dist_coeffs)
+                    reprojected_points = reprojected_points.reshape((4, 2))
+            
+                    # Compute the 2D Euclidean distance for each corner correctly
+                    # As noted by users on the OpenCV Forums, do not treat it as a single high-dimensional vector;
+                    # calculate the Euclidean distance per corner and then take the average.
+                    errors = np.linalg.norm(imagePoints - reprojected_points, axis=1)
+                    mean_reprojection_error = np.mean(errors)
 
-                    self.publish_tag_pose(markerID, quat, tvec.flatten())
+                #TODO publish all tags at once, not just one at a time
+                    tag = ArUcoDetection()
+                    tag.id = int(markerID)
+                    tag.reprojection_error = float(mean_reprojection_error)
+            
+                    tag.pose.position.x = float(tvec_flat[0])
+                    tag.pose.position.y = float(tvec_flat[1])
+                    tag.pose.position.z = float(tvec_flat[2])
+            
+                    tag.pose.orientation.x = float(quat[0])
+                    tag.pose.orientation.y = float(quat[1])
+                    tag.pose.orientation.z = float(quat[2])
+                    tag.pose.orientation.w = float(quat[3])
+
+                    msg.detections.append(tag)
+
+            msg.header.stamp = self.get_clock().now().to_msg()
+            self.pub.publish(msg)
 
         return
-    def publish_tag_pose(self, idx, quat, tvec):
-        msg = PoseStamped()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.header.frame_id = f'tag_{idx}'
-        msg.pose.position.x = tvec[0]
-        msg.pose.position.y = tvec[1]
-        msg.pose.position.z = tvec[2]
-
-        msg.pose.quaternion.x = quat[0]
-        msg.pose.quaternion.y = quat[1]
-        msg.pose.quaternion.z = quat[2]
-        msg.pose.quaternion.w = quat[3]
-
-        self.pub.publish(msg)
+  
 
 
 def main(args = None):
     rclpy.init(args=args)
-    camera_vision_node = CameraVisionNode
+    camera_vision_node = CameraVisionNode()
     rclpy.spin(camera_vision_node)
     camera_vision_node.destroy_node()
     rclpy.shutdown()

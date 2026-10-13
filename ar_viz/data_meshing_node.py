@@ -4,9 +4,11 @@ the system to combine two measurements based on the confidence of the measuremen
 """
 
 from geometry_msgs.msg import PoseStamped
+from custom_interfaces import ArUcoArray, ArUcoDetection
 import rclpy 
 import sys
 from rclpy.node import Node
+import yaml
 
 # Somehow I need to figure out how to confligrate multiple
 # camera's pose estimations for the aruco tag
@@ -14,9 +16,9 @@ from rclpy.node import Node
 class DataMeshingNode(Node):
     def __init__(self):
 
-        super.__init__('data_processing_node')
+        super().__init__('data_processing_node')
 
-        self.sub = self.create_subscription(PoseStamped, 'tag_pose', self.process_tagData_callback)
+        self.sub = self.create_subscription(ArUcoArray, 'tag_pose_array', self.process_tagData_callback)
 
 
     def process_tagData_callback(self):
@@ -27,7 +29,7 @@ class DataMeshingNode(Node):
 
 def main(args = None):
     rclpy.init(args=args)
-    data_meshing_node = DataMeshingNode
+    data_meshing_node = DataMeshingNode()
     rclpy.spin(data_meshing_node)
     data_meshing_node.destroy_node()
     rclpy.shutdown()

@@ -36,4 +36,7 @@
     python3-scipy.spatial.transform
   </exec_depend>
 
+  <depend>custom_interfaces</depend>
+
+
 </package>

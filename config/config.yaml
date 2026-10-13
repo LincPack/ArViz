@@ -1,0 +1,18 @@
+# ArUco tag configuration for ar_viz
+# Load with PyYAML:  yaml.safe_load(open(path))
+
+aruco:
+  # Must match the dictionary used by cv2.aruco.getPredefinedDictionary
+  dictionary: DICT_4x4_50
+  # Default side length of the black square, in meters
+  tag_size: 0.0194
+
+# One entry per tag. Only the IDs listed here are tracked.
+# size is optional; falls back to aruco.default_tag_size
+tags:
+  - id: 0
+    name: tag_0
+  - id: 1
+    name: tag_1
+  - id: 2
+    name: tag_2
