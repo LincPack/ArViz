@@ -21,7 +21,7 @@ class CameraVisionNode(Node):
 
         # The camera configuration file needs to be in a .npz format
 
-        self.pub = self.create_publisher(ArUcoArray, 'tag_pose_array', 10)
+        self.pub = self.create_publisher(ArUcoArray, 'raw_tag_array_0', 10)
         
 
         self.declare_parameter('camera_config', 'ArViz/gopro_calibration.npz')
@@ -49,7 +49,8 @@ class CameraVisionNode(Node):
         self.cam = cv2.VideoCapture(self.source)
 
         if not self.cam.isOpened():
-            self.get_logger().error("Failed to open video source")
+            raise RuntimeError("Failed to open video source")
+            # Close node
 
         fps = self.cam.get(cv2.CAP_PROP_FPS)
         if fps <=0 or fps > 200:
